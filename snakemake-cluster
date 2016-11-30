@@ -1,0 +1,97 @@
+#!/bin/bash
+read -d '' usage <<- EOF
+Simple snakemake cluster submission wrapper.
+
+This command submits the snakemake master process to the cluster, which then launches the
+individual jobs with the correct cluster arguments.
+
+Usage:
+  snakemake-cluster -J myjob -- [snakemake-args]
+
+Options:
+  --cluster-config: Set cluster.yaml (default: cluster.yaml)
+  --cluster-submitter: Set cluster submitter
+    (default: ~/.config/snakemake/cluster-submitter.py)
+  --jobscript: Set jobscript (default: ~/.config/snakemake/jobscript.sh)
+  --verbose: Print actual submissions commands
+  --lock: Don't set option --nolock
+  --no-rerun-incomplete: Don't set option '--rerun-incomplete'
+  --no-user-cluster-config: Don't use user's cluster config as the base template
+    (default: ~/.config/snakemake/cluster.yaml)
+
+
+Example:
+  snakemake-cluster -J myjob --snakefile do_stuff.sf last_rule
+EOF
+
+DATE_HOUR="$(date -Ihours --utc)"
+DATE_HOUR=${DATE_HOUR:0:13}
+LOG="log/snakemake.$DATE_HOUR.log"
+JOBS=88
+JOB_NAME=
+LOCK="--nolock"
+RERUN="--rerun-incomplete"
+CLUSTER_CONFIG="cluster.yaml"
+DEFAULT_CLUSTER_CONFIG="$HOME/.config/snakemake/cluster.yaml"
+JOBSCRIPT="$HOME/.config/snakemake/jobscript.sh"
+CLUSTER_SUBMITTER="$HOME/.config/snakemake/cluster-submitter.py"
+
+TEMP=$(getopt -o J:o:khj:  \
+              -l help,verbose,lock,cluster-config:,cluster-submitter:,jobscript: \
+              -l no-user-cluster-config,no-rerun-incomplete \
+              -n 'snakemake-cluster' -- "$@")
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true; do
+    case "$1" in
+        -J ) JOB_NAME="$2"; shift 2 ;;
+        -o ) LOG="$2"; shift 2 ;;
+        -k ) KEEP_GOING=true; shift ;;
+        -j | --jobs ) JOBS="$2"; shift 2 ;;
+        -h | --help ) HELP=1; shift ;;
+        --cluster-config ) CLUSTER_CONFIG="$2"; shift 2 ;;
+        --cluster-submitter ) CLUSTER_SUBMITTER="$2"; shift 2 ;;
+        --jobscript ) JOBSCRIPT="$2"; shift 2 ;;
+        --verbose ) VERBOSE=1; shift ;;
+        --lock ) LOCK=""; shift ;;
+        --no-user-cluster-config ) DEFAULT_CLUSTER_CONFIG= ; shift ;;
+        --no-rerun-incomplete ) RERUN= ; shift ;;
+        -- ) shift; break ;;
+        * ) break ;;
+    esac
+done
+
+if [[ "$HELP" -eq 1 ]]; then
+    echo >&2 "$usage"
+    exit 1
+fi
+
+
+if [[ -z "$JOB_NAME" ]]; then
+    JOB_NAME=$(basename $(pwd))
+fi
+
+if [[ -n "$CLUSTER_CONFIG" && -e "$CLUSTER_CONFIG" ]]; then
+    CLUSTER_CONFIG_OPT="--cluster-config $CLUSTER_CONFIG"
+else
+    CLUSTER_CONFIG_OPT=
+fi
+
+ln -sf "$(basename $LOG)" log/snakemake.log
+
+SNAKE_CMD="python -c 'import multiprocessing; multiprocessing.Lock()' || exit 99 && snakemake -k $LOCK --jobs $JOBS --latency-wait 60 --cluster-config $DEFAULT_CLUSTER_CONFIG $CLUSTER_CONFIG_OPT --jobscript $JOBSCRIPT $RERUN --cluster "\'"$CLUSTER_SUBMITTER {dependencies}"\'" $@"
+
+if [[ -n "$SGE_CLUSTER_NAME" ]]; then
+    CMD="qbsub -N $JOB_NAME -o $LOG -q long $SNAKE_CMD"
+    [[ "$VERBOSE" -eq 1 ]] && echo "$CMD"
+    exec $CMD
+elif [[ -n "$LSB_EXEC_CLUSTER" || -n "$LSF_LIBDIR" ]]; then
+
+    CMD="bsub -J $JOB_NAME -o $LOG -q week $SNAKE_CMD"
+
+    bsub -J "$JOB_NAME" -o "$LOG" -q week \
+         snakemake -k --jobs "$JOBS" --latency-wait 60 \
+         --cluster "bsub -q {cluster.queue} -n {cluster.n} -W {cluster.time} -o {cluster.combined_log} -R 'rusage[mem={cluster.mem}] span[hosts=1]'" \
+         --cluster-config "$CLUSTER_CONFIG" "$@"
+fi
