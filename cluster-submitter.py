@@ -32,11 +32,12 @@ res_req_str = ','.join('{}={}'.format(k, v) for k, v in res_req.items())
 
 cmd = ('qbsub --profile -r y -N {jobname} -q {queue} -R {reservation} '
        '-l {res_req} '
-       '-n {n} -o {{log}}'.format(
+       '-n {n} -o {log}'.format(
            jobname=jobname,
            queue=cluster['queue'],
            reservation=reservation,
            res_req=res_req_str,
+           log=cluster.get('log') or 'log/default.log',
            n=cluster['n']))
 
 dependencies = set(sys.argv[1:-2])
