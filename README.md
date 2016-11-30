@@ -35,7 +35,7 @@ For a simple one liner to download to `~/bin`:
 mkdir -p ~/bin && wget https://raw.githubusercontent.com/broadinstitute/qbsub/master/bin/qbsub -o ~/bin/qbsub && chmod +x ~/bin/qbsub
 ```
 
-Simply clone the repository and run `make`. This will be default install the
+Simply clone the repository and run `make`. This will by default install the
 `snakemake-cluster` script to `~/bin`. Therefore you will need to add `~/bin` to
 your `$PATH`.
 ```
@@ -52,7 +52,7 @@ project specific config at `<project_dir>/cluster.yaml` can be used to add addit
 configs, overriding the user `cluster.yaml` if there are any conflicts. The expected format is below:
 
 `<project_dir>/cluster.yaml`
-```
+```yaml
 __default__:
   n: 1
   queue: short
@@ -69,7 +69,7 @@ Time is listed in hours and is optional, `n` corresponds to the number of cores,
 `mem` is the maximum memory in gigabytes for the job. A example corresponding `Snakefile`:
 
 `<project_dir>/Snakefile`
-```
+```python
 rule bwa:
     input: 'fastq/{sample}.1.fastq', 'fastq/{sample}.2.fastq'
     output: 'alignment/{sample}.bwa.bam'
