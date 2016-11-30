@@ -66,17 +66,17 @@ bwa:
 ```
 
 Time is listed in hours and is optional, `n` corresponds to the number of cores,
-`mem` is the maximum memory in gigabytes for the job. A example corresponding `Snakefile`:
+`mem` is the maximum memory in gigabytes for the job. An example corresponding `Snakefile`:
 
 `<project_dir>/Snakefile`
 ```python
 rule bwa:
     input: 'fastq/{sample}.1.fastq', 'fastq/{sample}.2.fastq'
-    output: 'alignment/{sample}.bwa.bam'
+    output: 'alignment/{sample}.bwa.sam'
     log: 'log/alignment/{sample}.bwa.log'
     shell:
         '''
-        bwa mem -t 2 -a ~/db/bwa {input[0]} {input[1]} > {params.sam}
+        bwa mem -t 2 -a ~/db/bwa {input[0]} {input[1]} > {output}
         '''
 
 rule mapped_bam:
