@@ -57,6 +57,7 @@ __default__:
   n: 1
   queue: short
   mem: 8
+  log: '{log}'
 
 bwa:
   queue: long
@@ -65,8 +66,9 @@ bwa:
   mem: 4
 ```
 
-Time is listed in hours and is optional, `n` corresponds to the number of cores,
-`mem` is the maximum memory in gigabytes for the job. An example corresponding `Snakefile`:
+Time is listed in hours and is optional, `n` corresponds to the number of cores, `mem` is the
+maximum memory in gigabytes for the job. The `log: '{log}'` directive is necessary for logging to
+be redirected to the correct location. An example corresponding `Snakefile`:
 
 `<project_dir>/Snakefile`
 ```python
